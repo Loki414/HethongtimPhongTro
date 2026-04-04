@@ -9,7 +9,18 @@ function errorHandler(err, req, res, next) {
   const _ = next;
 
   const logger = require('../core/logger');
+  const { Sequelize } = require('sequelize');
   const { AppError, ApiError } = require('../core/errors/AppError');
+
+  if (err instanceof Sequelize.ForeignKeyConstraintError) {
+    if (process.env.NODE_ENV !== 'test') {
+      logger.warn('Foreign key constraint', { message: err.message, index: err.index, table: err.table });
+    }
+    return res.status(400).json({
+      message: 'Tham chiếu không hợp lệ (khóa ngoại): kiểm tra categoryId, locationId hoặc id liên quan.',
+      code: 'FOREIGN_KEY_ERROR',
+    });
+  }
 
   const appErr = err instanceof AppError ? err : new ApiError({ statusCode: 500, message: 'Internal Server Error' });
 

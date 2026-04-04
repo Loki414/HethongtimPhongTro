@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const Image = sequelize.define(
     'Image',
     {
-      id: { type: DataTypes.UUID, defaultValue: sequelize.literal('UUID()'), primaryKey: true },
+      id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
       roomId: { type: DataTypes.UUID, allowNull: false, field: 'room_id' },
       url: { type: DataTypes.STRING(1000), allowNull: false },
       fileName: { type: DataTypes.STRING(255), allowNull: true, field: 'file_name' },

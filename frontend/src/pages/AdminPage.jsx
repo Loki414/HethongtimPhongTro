@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { listRooms } from '../api/rooms';
 
@@ -148,6 +149,9 @@ export default function AdminPage() {
         <h2 style={{ marginTop: 0 }}>Trang quản trị (Admin)</h2>
         {error ? <div className="error">{error}</div> : null}
         <div style={{ color: 'rgba(232,238,252,0.7)' }}>Tối giản: quản lý Category/Location/Amenity + danh sách phòng (xóa).</div>
+        <Link className="btn" to="/admin/bookings" style={{ display: 'inline-flex', marginTop: 12 }}>
+          Duyệt đặt phòng (lịch thuê)
+        </Link>
       </div>
 
       <div className="card">

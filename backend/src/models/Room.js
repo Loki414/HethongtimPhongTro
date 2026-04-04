@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const Room = sequelize.define(
     'Room',
     {
-      id: { type: DataTypes.UUID, defaultValue: sequelize.literal('UUID()'), primaryKey: true },
+      id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
       userId: { type: DataTypes.UUID, allowNull: false, field: 'user_id' },
       title: { type: DataTypes.STRING(200), allowNull: false },
       description: { type: DataTypes.TEXT, allowNull: true },

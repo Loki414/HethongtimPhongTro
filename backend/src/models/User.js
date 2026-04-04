@@ -6,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       id: {
         type: DataTypes.UUID,
-        defaultValue: sequelize.literal('UUID()'),
+        defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
       },
       fullName: { type: DataTypes.STRING(120), allowNull: false },
@@ -38,6 +38,7 @@ module.exports = (sequelize, DataTypes) => {
     User.hasMany(models.Review, { foreignKey: 'userId', as: 'reviews' });
     User.hasMany(models.Favorite, { foreignKey: 'userId', as: 'favorites' });
     User.hasMany(models.Report, { foreignKey: 'reporterId', as: 'reports' });
+    User.hasMany(models.Notification, { foreignKey: 'userId', as: 'notifications' });
   };
 
   return User;

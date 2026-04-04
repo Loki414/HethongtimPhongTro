@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const Report = sequelize.define(
     'Report',
     {
-      id: { type: DataTypes.UUID, defaultValue: sequelize.literal('UUID()'), primaryKey: true },
+      id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
       reporterId: { type: DataTypes.UUID, allowNull: false, field: 'reporter_id' },
       roomId: { type: DataTypes.UUID, allowNull: false, field: 'room_id' },
       reason: { type: DataTypes.TEXT, allowNull: false },

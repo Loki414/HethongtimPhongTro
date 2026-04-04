@@ -1,23 +1,77 @@
 const { z } = require('zod');
 const { ApiError } = require('../middlewares/errorHandler');
-const { requireAuth, requireRole } = require('../middlewares/auth');
+const { requireAuth } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
-const { uploadRoomImages } = require('../middlewares/upload');
 
-const { Booking, Room, Category, Location, sequelize } = require('../models');
+const { Booking, Room, Category, Location, User, Notification, sequelize } = require('../models');
+
+function toYmdLocal(d) {
+  const x = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(x.getTime())) return '';
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+}
+
+/** Cộng đúng 1 tháng dương lịch, clamp ngày (VD 31/1 → 28/2 hoặc 29/2). */
+function addOneMonthClamp(fromDate) {
+  const s = fromDate instanceof Date ? fromDate : new Date(fromDate);
+  if (Number.isNaN(s.getTime())) return null;
+  const y = s.getFullYear();
+  const m = s.getMonth();
+  const day = s.getDate();
+  const lastInTargetMonth = new Date(y, m + 2, 0).getDate();
+  const useDay = Math.min(day, lastInTargetMonth);
+  return new Date(y, m + 1, useDay);
+}
+
+/** Kết thúc kỳ thuê sau `months` tháng (lặp addOneMonthClamp). */
+function expectedEndAfterMonths(startDate, months) {
+  const n = Number(months);
+  if (!Number.isFinite(n) || n < 1) return null;
+  let cur = startDate instanceof Date ? new Date(startDate) : new Date(startDate);
+  if (Number.isNaN(cur.getTime())) return null;
+  for (let i = 0; i < n; i++) {
+    const next = addOneMonthClamp(cur);
+    if (!next || Number.isNaN(next.getTime())) return null;
+    cur = next;
+  }
+  return cur;
+}
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(1).max(100).optional().default(10),
   roomId: z.string().uuid().optional(),
+  status: z.enum(['pending', 'confirmed', 'cancelled']).optional(),
 });
 
-const createBookingSchema = z.object({
-  roomId: z.string().uuid(),
-  startDate: z.coerce.date(),
-  endDate: z.coerce.date(),
-  note: z.string().optional(),
-}).refine((d) => d.endDate >= d.startDate, { message: 'endDate must be >= startDate' });
+const createBookingSchema = z
+  .object({
+    roomId: z.string().uuid(),
+    startDate: z.coerce.date(),
+    months: z.coerce.number().int().min(1).max(36).optional().default(1),
+    endDate: z.coerce.date().optional(),
+    note: z.string().optional(),
+  })
+  .transform((d) => {
+    const months = d.months ?? 1;
+    const expected = expectedEndAfterMonths(d.startDate, months);
+    const end = d.endDate ?? expected;
+    return { roomId: d.roomId, startDate: d.startDate, months, endDate: end, note: d.note };
+  })
+  .superRefine((d, ctx) => {
+    const expected = expectedEndAfterMonths(d.startDate, d.months);
+    if (!expected || Number.isNaN(expected.getTime())) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['startDate'], message: 'Ngày bắt đầu hoặc số tháng không hợp lệ' });
+      return;
+    }
+    if (toYmdLocal(d.endDate) !== toYmdLocal(expected)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: `Ngày kết thúc phải là ${toYmdLocal(expected)} (đúng ${d.months} tháng từ ngày bắt đầu, tính theo lịch).`,
+      });
+    }
+  });
 
 const updateBookingSchema = z.object({
   status: z.enum(['pending', 'confirmed', 'cancelled']).optional(),
@@ -27,25 +81,31 @@ const updateBookingSchema = z.object({
 const paramsBookingSchema = z.object({ bookingId: z.string().uuid() });
 
 async function list(req, res) {
-  const { page, pageSize, roomId } = req.query;
+  const { page, pageSize, roomId, status } = req.query;
   const where = {};
   if (roomId) where.roomId = roomId;
+  if (status) where.status = status;
   // User sees own bookings; admin sees all.
   if (req.user.role !== 'admin') where.userId = req.user.id;
 
+  const include = [
+    {
+      model: Room,
+      as: 'room',
+      attributes: ['id', 'title', 'pricePerMonth', 'address'],
+      include: [
+        { model: Category, as: 'category', attributes: ['id', 'name'], required: false },
+        { model: Location, as: 'location', attributes: ['id', 'name'], required: false },
+      ],
+    },
+  ];
+  if (req.user.role === 'admin') {
+    include.push({ model: User, as: 'user', attributes: ['id', 'fullName', 'email'], required: false });
+  }
+
   const { count, rows } = await Booking.findAndCountAll({
     where,
-    include: [
-      {
-        model: Room,
-        as: 'room',
-        attributes: ['id', 'title', 'pricePerMonth', 'address'],
-        include: [
-          { model: Category, as: 'category', attributes: ['id', 'name'], required: false },
-          { model: Location, as: 'location', attributes: ['id', 'name'], required: false },
-        ],
-      },
-    ],
+    include,
     distinct: true,
     limit: pageSize,
     offset: (page - 1) * pageSize,
@@ -81,13 +141,14 @@ async function create(req, res) {
     const room = await Room.findByPk(req.body.roomId, { transaction: t, attributes: ['id'] });
     if (!room) throw new ApiError(404, 'Room not found');
 
+    const { roomId, startDate, endDate, note } = req.body;
     return Booking.create(
       {
         userId: req.user.id,
-        roomId: req.body.roomId,
-        startDate: req.body.startDate,
-        endDate: req.body.endDate,
-        note: req.body.note,
+        roomId,
+        startDate,
+        endDate,
+        note,
       },
       { transaction: t }
     );
@@ -96,7 +157,9 @@ async function create(req, res) {
 }
 
 async function update(req, res) {
-  const booking = await Booking.findByPk(req.params.bookingId);
+  const booking = await Booking.findByPk(req.params.bookingId, {
+    include: [{ model: Room, as: 'room', attributes: ['id', 'title'] }],
+  });
   if (!booking) throw new ApiError(404, 'Booking not found');
   if (req.user.role !== 'admin' && booking.userId !== req.user.id) {
     throw new ApiError(403, 'Forbidden');
@@ -108,7 +171,43 @@ async function update(req, res) {
     throw new ApiError(403, 'Users can only cancel bookings');
   }
 
-  await booking.update(patch);
+  const prevStatus = booking.status;
+  const isAdmin = req.user.role === 'admin';
+  const roomTitle = booking.room?.title || 'Phòng';
+
+  await sequelize.transaction(async (t) => {
+    await booking.update(patch, { transaction: t });
+
+    if (isAdmin && patch.status === 'confirmed' && prevStatus !== 'confirmed') {
+      await Notification.create(
+        {
+          userId: booking.userId,
+          type: 'booking_confirmed',
+          title: 'Đặt phòng được chấp nhận',
+          body: `Lịch thuê "${roomTitle}" (${booking.startDate} → ${booking.endDate}) đã được admin xác nhận.`,
+          payload: { bookingId: booking.id, roomId: booking.roomId },
+        },
+        { transaction: t }
+      );
+    } else if (isAdmin && patch.status === 'cancelled' && prevStatus === 'pending') {
+      await Notification.create(
+        {
+          userId: booking.userId,
+          type: 'booking_rejected',
+          title: 'Lịch đặt phòng bị từ chối',
+          body: `Yêu cầu thuê "${roomTitle}" (${booking.startDate} → ${booking.endDate}) không được chấp nhận.`,
+          payload: { bookingId: booking.id, roomId: booking.roomId },
+        },
+        { transaction: t }
+      );
+    }
+  });
+
+  await booking.reload({
+    include: [
+      { model: Room, as: 'room', attributes: ['id', 'title', 'pricePerMonth', 'address'] },
+    ],
+  });
   res.json({ message: 'Booking updated', data: booking });
 }
 

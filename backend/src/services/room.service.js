@@ -2,6 +2,10 @@ const { Op } = require('sequelize');
 const { Room, Category, Location, Amenity, Image, Booking, Review, User, sequelize } = require('../models');
 const { invalidateRoomsCache } = require('../core/cache/roomsCache');
 
+function omitUndefined(obj) {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+}
+
 async function listRooms({ query }) {
   const {
     page,
@@ -103,7 +107,7 @@ async function getRoomById(id) {
 
 async function createRoom({ userId, payload }) {
   const { amenityIds, ...roomFields } = payload;
-  const created = await Room.create({ ...roomFields, userId });
+  const created = await Room.create(omitUndefined({ ...roomFields, userId }));
 
   if (amenityIds && amenityIds.length) {
     await created.setAmenities(amenityIds);
@@ -123,7 +127,7 @@ async function updateRoom({ user, roomId, payload }) {
   if (!isAdmin && !isOwner) return null;
 
   const { amenityIds, ...roomFields } = payload;
-  await room.update(roomFields);
+  await room.update(omitUndefined(roomFields));
   if (amenityIds) {
     await room.setAmenities(amenityIds);
   }

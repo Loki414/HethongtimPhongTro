@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const Amenity = sequelize.define(
     'Amenity',
     {
-      id: { type: DataTypes.UUID, defaultValue: sequelize.literal('UUID()'), primaryKey: true },
+      id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
       name: { type: DataTypes.STRING(120), allowNull: false, unique: true },
     },
     { tableName: 'amenities', underscored: true }

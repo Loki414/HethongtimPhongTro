@@ -20,6 +20,7 @@ const reviewRoutes = require('./routes/review.routes');
 const favoriteRoutes = require('./routes/favorite.routes');
 const reportRoutes = require('./routes/report.routes');
 const imageRoutes = require('./routes/image.routes');
+const notificationRoutes = require('./routes/notification.routes');
 
 const app = express();
 
@@ -89,6 +90,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

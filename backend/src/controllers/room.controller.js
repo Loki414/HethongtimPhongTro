@@ -5,6 +5,7 @@ const { requireAuth, requireRole } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
 const { uploadRoomImages } = require('../middlewares/upload');
 
+const asyncHandler = require('../utils/asyncHandler');
 const { Room, Image } = require('../models');
 const roomService = require('../services/room.service');
 const { getCachedRoomsList, setCachedRoomsList } = require('../core/cache/roomsCache');
@@ -118,16 +119,22 @@ async function uploadImages(req, res) {
 }
 
 module.exports = {
-  list: [validate({ query: listRoomsQuerySchema }), list],
-  getById: [validate({ params: roomIdParams }), getById],
-  create: [requireAuth, requireRole('admin'), validate({ body: createRoomBodySchema }), create],
-  update: [requireAuth, requireRole('admin'), validate({ params: roomIdParams }), validate({ body: updateRoomBodySchema }), update],
-  remove: [requireAuth, requireRole('admin'), validate({ params: roomIdParams }), remove],
+  list: [validate({ query: listRoomsQuerySchema }), asyncHandler(list)],
+  getById: [validate({ params: roomIdParams }), asyncHandler(getById)],
+  create: [requireAuth, requireRole('admin'), validate({ body: createRoomBodySchema }), asyncHandler(create)],
+  update: [
+    requireAuth,
+    requireRole('admin'),
+    validate({ params: roomIdParams }),
+    validate({ body: updateRoomBodySchema }),
+    asyncHandler(update),
+  ],
+  remove: [requireAuth, requireRole('admin'), validate({ params: roomIdParams }), asyncHandler(remove)],
   uploadImages: [
     requireAuth,
     requireRole('admin'),
     validate({ params: roomIdParams }),
     uploadRoomImages.array('images', 10),
-    uploadImages,
+    asyncHandler(uploadImages),
   ],
 };

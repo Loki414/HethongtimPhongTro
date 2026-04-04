@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, Link, NavLink, useLocation } from 'react-router-dom';
 import HomePage from './pages/HomePage.jsx';
 import RoomDetailPage from './pages/RoomDetailPage.jsx';
 import AuthPage from './pages/AuthPage.jsx';
 import PostRoomPage from './pages/PostRoomPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
+import AdminBookingsPage from './pages/AdminBookingsPage.jsx';
 import MyFavoritesPage from './pages/MyFavoritesPage.jsx';
 import MyBookingsPage from './pages/MyBookingsPage.jsx';
 import MyReportsPage from './pages/MyReportsPage.jsx';
 import AdminReportsPage from './pages/AdminReportsPage.jsx';
+import NotificationsPage from './pages/NotificationsPage.jsx';
+import { getUnreadNotificationCount } from './api/notifications';
 import { useAuth } from './state/auth.jsx';
 
 function RequireAuth({ children, role }) {
@@ -40,6 +43,9 @@ export default function App() {
                 <NavLink className="navLink" end to="/admin">
                   Admin
                 </NavLink>
+                <NavLink className="navLink" to="/admin/bookings">
+                  Duyệt đặt phòng
+                </NavLink>
               </>
             ) : null}
             {token ? (
@@ -50,6 +56,7 @@ export default function App() {
                 <NavLink className="navLink" to="/bookings">
                   Đặt lịch
                 </NavLink>
+                <NotificationsNav />
                 {user?.role === 'admin' ? (
                   <NavLink className="navLink" to="/admin/reports">
                     Quản lý báo cáo
@@ -88,6 +95,14 @@ export default function App() {
             }
           />
           <Route
+            path="/admin/bookings"
+            element={
+              <RequireAuth role="admin">
+                <AdminBookingsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
             path="/favorites"
             element={
               <RequireAuth>
@@ -100,6 +115,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <MyBookingsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <RequireAuth>
+                <NotificationsPage />
               </RequireAuth>
             }
           />
@@ -122,6 +145,69 @@ export default function App() {
         </Routes>
       </main>
     </div>
+  );
+}
+
+function NotificationsNav() {
+  const { token } = useAuth();
+  const [unread, setUnread] = useState(0);
+
+  const refresh = useCallback(async () => {
+    if (!token) return;
+    try {
+      const n = await getUnreadNotificationCount();
+      setUnread(typeof n === 'number' ? n : 0);
+    } catch {
+      /* ignore */
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      setUnread(0);
+      return undefined;
+    }
+    refresh();
+    const interval = setInterval(refresh, 25000);
+    const onFocus = () => refresh();
+    const onUpdated = () => refresh();
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('dack-notifications-updated', onUpdated);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('dack-notifications-updated', onUpdated);
+    };
+  }, [token, refresh]);
+
+  if (!token) return null;
+
+  return (
+    <NavLink className="navLink" to="/notifications" style={{ position: 'relative', paddingRight: unread > 0 ? 10 : undefined }}>
+      Thông báo
+      {unread > 0 ? (
+        <span
+          aria-label={`${unread} thông báo chưa đọc`}
+          style={{
+            position: 'absolute',
+            top: -4,
+            right: -2,
+            minWidth: 18,
+            height: 18,
+            padding: '0 5px',
+            borderRadius: 999,
+            background: 'rgba(255,107,107,0.95)',
+            color: '#fff',
+            fontSize: 11,
+            fontWeight: 800,
+            lineHeight: '18px',
+            textAlign: 'center',
+          }}
+        >
+          {unread > 99 ? '99+' : unread}
+        </span>
+      ) : null}
+    </NavLink>
   );
 }
 

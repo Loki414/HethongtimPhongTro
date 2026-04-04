@@ -16,6 +16,7 @@ const Amenity = require('./Amenity')(sequelize, Sequelize.DataTypes);
 const Favorite = require('./Favorite')(sequelize, Sequelize.DataTypes);
 const Report = require('./Report')(sequelize, Sequelize.DataTypes);
 const RoomAmenity = require('./RoomAmenity')(sequelize, Sequelize.DataTypes);
+const Notification = require('./Notification')(sequelize, Sequelize.DataTypes);
 
 // Associations
 const models = {
@@ -30,6 +31,7 @@ const models = {
   Favorite,
   Report,
   RoomAmenity,
+  Notification,
 };
 
 Object.values(models).forEach((m) => {

@@ -7,6 +7,28 @@ import { createBooking } from '../api/bookings';
 import { createReport } from '../api/reports';
 import { useAuth } from '../state/auth.jsx';
 
+function toYmdLocal(d) {
+  const x = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(x.getTime())) return '';
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+}
+
+/** Trùng backend: lặp `months` lần cộng 1 tháng (clamp). */
+function expectedEndAfterMonthsFromYmd(ymd, months) {
+  if (!ymd || !Number.isFinite(months) || months < 1) return null;
+  const [y, mo, d] = ymd.split('-').map(Number);
+  if (!y || !mo || !d) return null;
+  let cur = new Date(y, mo - 1, d);
+  if (Number.isNaN(cur.getTime())) return null;
+  for (let i = 0; i < months; i++) {
+    const lastInTargetMonth = new Date(cur.getFullYear(), cur.getMonth() + 2, 0).getDate();
+    const day = cur.getDate();
+    const useDay = Math.min(day, lastInTargetMonth);
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, useDay);
+  }
+  return cur;
+}
+
 export default function RoomDetailPage() {
   const { roomId } = useParams();
   const navigate = useNavigate();
@@ -23,7 +45,7 @@ export default function RoomDetailPage() {
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
   const [savingReview, setSavingReview] = useState(false);
 
-  const [bookingForm, setBookingForm] = useState({ startDate: '', endDate: '', note: '' });
+  const [bookingForm, setBookingForm] = useState({ startDate: '', months: 1, note: '' });
   const [savingBooking, setSavingBooking] = useState(false);
 
   const [reportReason, setReportReason] = useState('');
@@ -83,6 +105,11 @@ export default function RoomDetailPage() {
     return Array.from(groups.entries()).map(([label, items]) => ({ label, items }));
   }, [room]);
 
+  const bookingEndPreview = useMemo(() => {
+    const end = expectedEndAfterMonthsFromYmd(bookingForm.startDate, Number(bookingForm.months) || 1);
+    return end ? toYmdLocal(end) : '';
+  }, [bookingForm.startDate, bookingForm.months]);
+
   async function onToggleFavorite() {
     if (!token) {
       navigate('/auth', { replace: true });
@@ -124,18 +151,33 @@ export default function RoomDetailPage() {
   async function onSubmitBooking(e) {
     e.preventDefault();
     if (!token) return navigate('/auth', { replace: true });
+    const { startDate, months: monthsRaw } = bookingForm;
+    const months = Math.min(36, Math.max(1, Math.floor(Number(monthsRaw) || 1)));
+    if (!startDate) {
+      setError('Chọn ngày bắt đầu thuê.');
+      return;
+    }
+    const endDt = expectedEndAfterMonthsFromYmd(startDate, months);
+    if (!endDt) {
+      setError('Ngày bắt đầu hoặc số tháng không hợp lệ.');
+      return;
+    }
+    const endDate = toYmdLocal(endDt);
     setSavingBooking(true);
     setError('');
     try {
       await createBooking({
         roomId,
-        startDate: bookingForm.startDate,
-        endDate: bookingForm.endDate,
+        startDate,
+        months,
+        endDate,
         note: bookingForm.note || undefined,
       });
       navigate('/bookings');
     } catch (e) {
-      setError(e?.response?.data?.message || e.message || 'Booking failed');
+      const d = e?.response?.data?.details;
+      const first = Array.isArray(d) ? d[0]?.message : null;
+      setError(first || e?.response?.data?.message || e.message || 'Booking failed');
     } finally {
       setSavingBooking(false);
     }
@@ -292,16 +334,33 @@ export default function RoomDetailPage() {
         <div style={{ fontWeight: 800, marginBottom: 8 }}>Booking lịch thuê</div>
         {token ? (
           <form onSubmit={onSubmitBooking} className="form">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <label>
-                Ngày bắt đầu
-                <input type="date" value={bookingForm.startDate} onChange={(e) => setBookingForm((s) => ({ ...s, startDate: e.target.value }))} />
-              </label>
-              <label>
-                Ngày kết thúc
-                <input type="date" value={bookingForm.endDate} onChange={(e) => setBookingForm((s) => ({ ...s, endDate: e.target.value }))} />
-              </label>
+            <div style={{ color: 'rgba(232,238,252,0.75)', fontSize: 14, marginBottom: 10 }}>
+              Chọn <strong>ngày bắt đầu</strong> và <strong>số tháng thuê</strong> (1–36). Mỗi tháng tính theo lịch, cùng số ngày tháng sau; tháng ngắn sẽ tự lấy ngày cuối tháng (VD 31/1 → 28/2).
             </div>
+            <label>
+              Ngày bắt đầu thuê
+              <input
+                type="date"
+                value={bookingForm.startDate}
+                onChange={(e) => setBookingForm((s) => ({ ...s, startDate: e.target.value }))}
+              />
+            </label>
+            <label>
+              Số tháng thuê
+              <input
+                type="number"
+                min={1}
+                max={36}
+                step={1}
+                value={bookingForm.months}
+                onChange={(e) => setBookingForm((s) => ({ ...s, months: Number(e.target.value) }))}
+              />
+            </label>
+            {bookingEndPreview ? (
+              <div style={{ color: 'rgba(232,238,252,0.7)', fontSize: 14 }}>
+                Ngày kết thúc kỳ (dự kiến): <strong>{bookingEndPreview}</strong>
+              </div>
+            ) : null}
             <label>
               Ghi chú (tùy chọn)
               <textarea value={bookingForm.note} onChange={(e) => setBookingForm((s) => ({ ...s, note: e.target.value }))} />
