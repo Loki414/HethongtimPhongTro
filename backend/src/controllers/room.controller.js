@@ -1,7 +1,7 @@
 const { z } = require('zod');
 const { Op } = require('sequelize');
 const { ApiError } = require('../middlewares/errorHandler');
-const { requireAuth } = require('../middlewares/auth');
+const { requireAuth, requireRole } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
 const { uploadRoomImages } = require('../middlewares/upload');
 
@@ -120,11 +120,12 @@ async function uploadImages(req, res) {
 module.exports = {
   list: [validate({ query: listRoomsQuerySchema }), list],
   getById: [validate({ params: roomIdParams }), getById],
-  create: [requireAuth, validate({ body: createRoomBodySchema }), create],
-  update: [requireAuth, validate({ params: roomIdParams }), validate({ body: updateRoomBodySchema }), update],
-  remove: [requireAuth, validate({ params: roomIdParams }), remove],
+  create: [requireAuth, requireRole('admin'), validate({ body: createRoomBodySchema }), create],
+  update: [requireAuth, requireRole('admin'), validate({ params: roomIdParams }), validate({ body: updateRoomBodySchema }), update],
+  remove: [requireAuth, requireRole('admin'), validate({ params: roomIdParams }), remove],
   uploadImages: [
     requireAuth,
+    requireRole('admin'),
     validate({ params: roomIdParams }),
     uploadRoomImages.array('images', 10),
     uploadImages,

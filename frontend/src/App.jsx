@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, NavLink, useLocation } from 'react-router-dom';
 import HomePage from './pages/HomePage.jsx';
 import RoomDetailPage from './pages/RoomDetailPage.jsx';
 import AuthPage from './pages/AuthPage.jsx';
@@ -24,26 +24,46 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">
-          <Link to="/">DACK</Link>
+        <div className="topbarInner">
+          <div className="brand">
+            <Link to="/">DACK</Link>
+          </div>
+          <nav className="nav" aria-label="Điều hướng chính">
+            <NavLink className="navLink" end to="/">
+              Trang chủ
+            </NavLink>
+            {user?.role === 'admin' ? (
+              <>
+                <NavLink className="navLink" to="/post">
+                  Đăng bài
+                </NavLink>
+                <NavLink className="navLink" end to="/admin">
+                  Admin
+                </NavLink>
+              </>
+            ) : null}
+            {token ? (
+              <>
+                <NavLink className="navLink" to="/favorites">
+                  Yêu thích
+                </NavLink>
+                <NavLink className="navLink" to="/bookings">
+                  Đặt lịch
+                </NavLink>
+                {user?.role === 'admin' ? (
+                  <NavLink className="navLink" to="/admin/reports">
+                    Quản lý báo cáo
+                  </NavLink>
+                ) : (
+                  <NavLink className="navLink" to="/reports">
+                    Báo cáo của tôi
+                  </NavLink>
+                )}
+              </>
+            ) : null}
+          </nav>
+          <AuthButtons />
         </div>
-        <nav className="nav">
-          <Link to="/">Trang chủ</Link>
-          <Link to="/post">Đăng bài</Link>
-          <Link to="/admin">Admin</Link>
-          {token ? (
-            <>
-              <Link to="/favorites">Yêu thích</Link>
-              <Link to="/bookings">Đặt lịch</Link>
-              {user?.role === 'admin' ? (
-                <Link to="/admin/reports">Quản lý báo cáo</Link>
-              ) : (
-                <Link to="/reports">Báo cáo của tôi</Link>
-              )}
-            </>
-          ) : null}
-        </nav>
-        <AuthButtons />
       </header>
 
       <main className="container">
@@ -54,7 +74,7 @@ export default function App() {
           <Route
             path="/post"
             element={
-              <RequireAuth>
+              <RequireAuth role="admin">
                 <PostRoomPage />
               </RequireAuth>
             }

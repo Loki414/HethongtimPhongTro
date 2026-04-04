@@ -1,7 +1,8 @@
 import { api } from './client';
 
-export async function listRooms(params) {
-  const res = await api.get('/rooms', { params });
+export async function listRooms(params, options = {}) {
+  const { signal } = options;
+  const res = await api.get('/rooms', { params, ...(signal ? { signal } : {}) });
   return res.data;
 }
 

@@ -36,16 +36,35 @@ app.use(
 
 app.use(requestLogger);
 
-app.use(
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 200,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { message: 'Too many requests' },
-    keyGenerator: (req) => req.ip,
-  })
-);
+const isProd = process.env.NODE_ENV === 'production';
+const skipRateLimit = () => process.env.RATE_LIMIT_DISABLED === 'true';
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: isProd ? 40 : 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Quá nhiều lần thử đăng nhập, vui lòng chờ.' },
+  keyGenerator: (req) => req.ip,
+  skip: skipRateLimit,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: isProd ? 500 : 8000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests' },
+  keyGenerator: (req) => req.ip,
+  skip: skipRateLimit,
+});
+
+function routeRateLimit(req, res, next) {
+  if (req.path.startsWith('/api/auth')) return authLimiter(req, res, next);
+  return apiLimiter(req, res, next);
+}
+
+app.use(routeRateLimit);
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
