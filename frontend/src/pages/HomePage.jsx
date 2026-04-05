@@ -1,8 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { listAmenities, listCategories, listLocations } from '../api/lookups';
 import { listRooms } from '../api/rooms';
+import CompareRoomsPanel from '../components/CompareRoomsPanel.jsx';
+
+const MAX_COMPARE_ROOMS = 3;
 
 function apiErrorMessage(e) {
   return e?.response?.data?.message || e?.message || 'Đã có lỗi xảy ra';
@@ -20,6 +23,12 @@ const LOOKUP_STALE_MS = 5 * 60 * 1000;
 export default function HomePage() {
   const [page, setPage] = useState(1);
   const pageSize = 9;
+
+  /** Tab nội dung: danh sách tìm kiếm hoặc so sánh phòng (tự chuyển khi đủ 2 phòng). */
+  const [homeTab, setHomeTab] = useState('list');
+  /** Thứ tự chọn = thứ tự cột so sánh; tối đa 3. */
+  const [compareSelection, setCompareSelection] = useState([]);
+  const prevCompareLenRef = useRef(0);
 
   const [filters, setFilters] = useState({
     q: '',
@@ -108,6 +117,34 @@ export default function HomePage() {
 
   const totalPages = meta?.pageCount || 1;
 
+  useEffect(() => {
+    const n = compareSelection.length;
+    const prev = prevCompareLenRef.current;
+    prevCompareLenRef.current = n;
+    if (n >= 2 && prev === 1) setHomeTab('compare');
+  }, [compareSelection]);
+
+  useEffect(() => {
+    if (compareSelection.length < 2 && homeTab === 'compare') setHomeTab('list');
+  }, [compareSelection.length, homeTab]);
+
+  function toggleCompareRoom(room) {
+    setCompareSelection((prev) => {
+      const exists = prev.some((x) => x.id === room.id);
+      if (exists) return prev.filter((x) => x.id !== room.id);
+      if (prev.length >= MAX_COMPARE_ROOMS) return prev;
+      return [...prev, { id: room.id, title: room.title || 'Phòng' }];
+    });
+  }
+
+  function removeFromCompare(roomId) {
+    setCompareSelection((prev) => prev.filter((x) => x.id !== roomId));
+  }
+
+  function clearCompareSelection() {
+    setCompareSelection([]);
+  }
+
   function getAmenityGroupLabel(name) {
     const n = String(name || '').toLowerCase();
     if (n.includes('wifi')) return 'Kết nối';
@@ -147,6 +184,7 @@ export default function HomePage() {
 
   return (
     <div className="grid" style={{ gap: 14 }}>
+      {homeTab === 'list' ? (
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Tìm phòng trọ</h2>
         {lookupsErr ? (
@@ -248,8 +286,94 @@ export default function HomePage() {
           ) : null}
         </div>
       </div>
+      ) : null}
 
       <div className="card">
+        <div
+          role="tablist"
+          aria-label="Tìm phòng và so sánh"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14, alignItems: 'center' }}
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={homeTab === 'list'}
+            className="btn"
+            onClick={() => setHomeTab('list')}
+            style={{
+              borderColor: homeTab === 'list' ? 'rgba(110,168,254,0.9)' : 'rgba(255,255,255,0.12)',
+              background: homeTab === 'list' ? 'rgba(110,168,254,0.12)' : 'transparent',
+            }}
+          >
+            Tìm phòng
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={homeTab === 'compare'}
+            disabled={compareSelection.length < 2}
+            className="btn"
+            onClick={() => setHomeTab('compare')}
+            style={{
+              borderColor: homeTab === 'compare' ? 'rgba(110,168,254,0.9)' : 'rgba(255,255,255,0.12)',
+              background: homeTab === 'compare' ? 'rgba(110,168,254,0.12)' : 'transparent',
+              opacity: compareSelection.length < 2 ? 0.45 : 1,
+            }}
+          >
+            So sánh ({compareSelection.length}/{MAX_COMPARE_ROOMS})
+          </button>
+        </div>
+
+        {compareSelection.length > 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 10,
+              alignItems: 'center',
+              marginBottom: 14,
+              padding: '10px 12px',
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'rgba(110,168,254,0.06)',
+            }}
+          >
+            <span style={{ fontWeight: 700, fontSize: 13, color: 'rgba(232,238,252,0.85)' }}>Đang chọn so sánh:</span>
+            {compareSelection.map((r) => (
+              <span key={r.id} className="pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.title}>
+                  {r.title}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`Bỏ ${r.title}`}
+                  onClick={() => removeFromCompare(r.id)}
+                  style={{
+                    border: 'none',
+                    background: 'rgba(255,255,255,0.1)',
+                    color: 'inherit',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    padding: '0 6px',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <button type="button" className="btn btnGhost" style={{ marginLeft: 'auto' }} onClick={clearCompareSelection}>
+              Xóa hết
+            </button>
+          </div>
+        ) : (
+          <div style={{ color: 'rgba(232,238,252,0.65)', fontSize: 14, marginBottom: 14 }}>
+            Tích <strong>So sánh</strong> trên từng phòng (tối đa {MAX_COMPARE_ROOMS}). Khi đủ 2 phòng, trang sẽ chuyển sang tab <strong>So sánh</strong>.
+          </div>
+        )}
+
+        {homeTab === 'list' ? (
+        <>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontWeight: 700 }}>Danh sách phòng</div>
@@ -305,6 +429,8 @@ export default function HomePage() {
         <div className="grid grid-3" style={{ marginTop: 14 }}>
           {rooms.map((room) => {
             const cover = pickCover(room);
+            const inCompare = compareSelection.some((x) => x.id === room.id);
+            const compareFull = compareSelection.length >= MAX_COMPARE_ROOMS && !inCompare;
             return (
               <div key={room.id} className="roomItem">
                 {cover ? <img className="roomThumb" src={cover} alt={room.title} /> : <div className="roomThumb" />}
@@ -314,13 +440,36 @@ export default function HomePage() {
                   <span className="pill">{room.location?.name || '—'}</span>
                   <span className="pill">{Number(room.pricePerMonth).toLocaleString('vi-VN')} VND</span>
                 </div>
-                <Link className="btn" to={`/rooms/${room.id}`}>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginTop: 10,
+                    cursor: compareFull ? 'not-allowed' : 'pointer',
+                    fontSize: 14,
+                    color: compareFull ? 'rgba(232,238,252,0.45)' : 'rgba(232,238,252,0.85)',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={inCompare}
+                    disabled={compareFull}
+                    onChange={() => toggleCompareRoom(room)}
+                  />
+                  Thêm vào so sánh
+                </label>
+                <Link className="btn" to={`/rooms/${room.id}`} style={{ marginTop: 10 }}>
                   Xem chi tiết
                 </Link>
               </div>
             );
           })}
         </div>
+        </>
+        ) : (
+          <CompareRoomsPanel roomsToCompare={compareSelection} onRemove={removeFromCompare} />
+        )}
       </div>
     </div>
   );

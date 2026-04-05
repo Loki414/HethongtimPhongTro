@@ -4,6 +4,7 @@ const { requireAuth } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
 
 const { Booking, Room, Category, Location, User, Notification, sequelize } = require('../models');
+const { tryCreateDepositOnConfirm } = require('../services/depositInvoice.service');
 
 function toYmdLocal(d) {
   const x = d instanceof Date ? d : new Date(d);
@@ -100,7 +101,7 @@ async function list(req, res) {
     },
   ];
   if (req.user.role === 'admin') {
-    include.push({ model: User, as: 'user', attributes: ['id', 'fullName', 'email'], required: false });
+    include.push({ model: User, as: 'user', attributes: ['id', 'fullName', 'email', 'phone'], required: false });
   }
 
   const { count, rows } = await Booking.findAndCountAll({
@@ -158,7 +159,7 @@ async function create(req, res) {
 
 async function update(req, res) {
   const booking = await Booking.findByPk(req.params.bookingId, {
-    include: [{ model: Room, as: 'room', attributes: ['id', 'title'] }],
+    include: [{ model: Room, as: 'room', attributes: ['id', 'title', 'pricePerMonth'] }],
   });
   if (!booking) throw new ApiError(404, 'Booking not found');
   if (req.user.role !== 'admin' && booking.userId !== req.user.id) {
@@ -174,6 +175,8 @@ async function update(req, res) {
   const prevStatus = booking.status;
   const isAdmin = req.user.role === 'admin';
   const roomTitle = booking.room?.title || 'Phòng';
+  // Sau `booking.update()`, Sequelize có thể gỡ association `room` khỏi instance → giữ ref trước khi update.
+  const roomForDeposit = booking.room;
 
   await sequelize.transaction(async (t) => {
     await booking.update(patch, { transaction: t });
@@ -189,6 +192,7 @@ async function update(req, res) {
         },
         { transaction: t }
       );
+      await tryCreateDepositOnConfirm(booking, roomForDeposit, roomTitle, t);
     } else if (isAdmin && patch.status === 'cancelled' && prevStatus === 'pending') {
       await Notification.create(
         {

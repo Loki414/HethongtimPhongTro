@@ -21,6 +21,8 @@ const favoriteRoutes = require('./routes/favorite.routes');
 const reportRoutes = require('./routes/report.routes');
 const imageRoutes = require('./routes/image.routes');
 const notificationRoutes = require('./routes/notification.routes');
+const depositInvoiceRoutes = require('./routes/depositInvoice.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
 
@@ -91,6 +93,8 @@ app.use('/api/favorites', favoriteRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/deposit-invoices', depositInvoiceRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -100,6 +100,7 @@ export default function NotificationsPage() {
           <div style={{ display: 'grid', gap: 12 }}>
             {items.map((n) => {
               const roomId = n.payload?.roomId;
+              const depositInvoiceId = n.payload?.depositInvoiceId;
               const inner = (
                 <>
                   <div style={{ fontWeight: n.readAt ? 600 : 800 }}>{n.title}</div>
@@ -122,7 +123,18 @@ export default function NotificationsPage() {
                     background: n.readAt ? 'transparent' : 'rgba(110,168,254,0.06)',
                   }}
                 >
-                  {roomId ? (
+                  {(n.type === 'deposit_invoice' || n.type === 'deposit_paid') && depositInvoiceId ? (
+                    <Link
+                      to={`/deposits/${depositInvoiceId}`}
+                      onClick={() => onOpenItem(n)}
+                      style={{ color: 'inherit', textDecoration: 'none', display: 'block' }}
+                    >
+                      {inner}
+                      <span className="btn btnGhost" style={{ marginTop: 10, display: 'inline-flex' }}>
+                        Xem hóa đơn cọc
+                      </span>
+                    </Link>
+                  ) : roomId ? (
                     <Link
                       to={`/rooms/${roomId}`}
                       onClick={() => onOpenItem(n)}

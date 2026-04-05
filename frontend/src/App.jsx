@@ -11,7 +11,12 @@ import MyBookingsPage from './pages/MyBookingsPage.jsx';
 import MyReportsPage from './pages/MyReportsPage.jsx';
 import AdminReportsPage from './pages/AdminReportsPage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
+import MyDepositsPage from './pages/MyDepositsPage.jsx';
+import AdminDepositInvoicesPage from './pages/AdminDepositInvoicesPage.jsx';
+import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
+import HelpPage from './pages/HelpPage.jsx';
 import { getUnreadNotificationCount } from './api/notifications';
+import UserAccountMenu from './components/UserAccountMenu.jsx';
 import { useAuth } from './state/auth.jsx';
 
 function RequireAuth({ children, role }) {
@@ -35,37 +40,55 @@ export default function App() {
             <NavLink className="navLink" end to="/">
               Trang chủ
             </NavLink>
-            {user?.role === 'admin' ? (
-              <>
-                <NavLink className="navLink" to="/post">
-                  Đăng bài
-                </NavLink>
-                <NavLink className="navLink" end to="/admin">
-                  Admin
-                </NavLink>
-                <NavLink className="navLink" to="/admin/bookings">
-                  Duyệt đặt phòng
-                </NavLink>
-              </>
-            ) : null}
+            <NavLink className="navLink" to="/help">
+              Trợ giúp
+            </NavLink>
             {token ? (
               <>
+                <span className="navDivider" aria-hidden />
                 <NavLink className="navLink" to="/favorites">
                   Yêu thích
                 </NavLink>
                 <NavLink className="navLink" to="/bookings">
-                  Đặt lịch
+                  Đặt phòng
                 </NavLink>
-                <NotificationsNav />
-                {user?.role === 'admin' ? (
-                  <NavLink className="navLink" to="/admin/reports">
-                    Quản lý báo cáo
-                  </NavLink>
-                ) : (
+                <NavLink className="navLink" to="/deposits">
+                  Cọc của tôi
+                </NavLink>
+                {user?.role !== 'admin' ? (
                   <NavLink className="navLink" to="/reports">
-                    Báo cáo của tôi
+                    Báo cáo
                   </NavLink>
-                )}
+                ) : null}
+              </>
+            ) : null}
+            {user?.role === 'admin' ? (
+              <>
+                <span className="navDivider" aria-hidden />
+                <NavLink
+                  className={({ isActive }) => `navLink navLinkIcon${isActive ? ' active' : ''}`}
+                  to="/admin/dashboard"
+                  aria-label="Dashboard tổng quan"
+                  title="Dashboard"
+                  end
+                >
+                  <DashboardNavIcon />
+                </NavLink>
+                <NavLink className="navLink" to="/post">
+                  Đăng tin
+                </NavLink>
+                <NavLink className="navLink" end to="/admin">
+                  Danh mục & phòng
+                </NavLink>
+                <NavLink className="navLink" to="/admin/bookings">
+                  Duyệt đặt phòng
+                </NavLink>
+                <NavLink className="navLink" to="/admin/deposits">
+                  Cọc & thanh toán
+                </NavLink>
+                <NavLink className="navLink" to="/admin/reports">
+                  Báo cáo (quản lý)
+                </NavLink>
               </>
             ) : null}
           </nav>
@@ -76,6 +99,7 @@ export default function App() {
       <main className="container">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/help" element={<HelpPage />} />
           <Route path="/rooms/:roomId" element={<RoomDetailPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route
@@ -83,6 +107,14 @@ export default function App() {
             element={
               <RequireAuth role="admin">
                 <PostRoomPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/dashboard"
+            element={
+              <RequireAuth role="admin">
+                <AdminDashboardPage />
               </RequireAuth>
             }
           />
@@ -99,6 +131,14 @@ export default function App() {
             element={
               <RequireAuth role="admin">
                 <AdminBookingsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/deposits"
+            element={
+              <RequireAuth role="admin">
+                <AdminDepositInvoicesPage />
               </RequireAuth>
             }
           />
@@ -127,6 +167,22 @@ export default function App() {
             }
           />
           <Route
+            path="/deposits/:depositInvoiceId"
+            element={
+              <RequireAuth>
+                <MyDepositsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/deposits"
+            element={
+              <RequireAuth>
+                <MyDepositsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
             path="/reports"
             element={
               <RequireAuth>
@@ -145,6 +201,36 @@ export default function App() {
         </Routes>
       </main>
     </div>
+  );
+}
+
+function DashboardNavIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="3" y="3" width="7" height="9" rx="1" />
+      <rect x="14" y="3" width="7" height="5" rx="1" />
+      <rect x="14" y="12" width="7" height="9" rx="1" />
+      <rect x="3" y="16" width="7" height="5" rx="1" />
+    </svg>
+  );
+}
+
+function BellIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
   );
 }
 
@@ -183,26 +269,18 @@ function NotificationsNav() {
   if (!token) return null;
 
   return (
-    <NavLink className="navLink" to="/notifications" style={{ position: 'relative', paddingRight: unread > 0 ? 10 : undefined }}>
-      Thông báo
+    <NavLink
+      to="/notifications"
+      className={({ isActive }) => `notificationBell${isActive ? ' notificationBell--active' : ''}`}
+      aria-label={unread > 0 ? `Thông báo, ${unread > 99 ? 'hơn 99' : unread} chưa đọc` : 'Thông báo'}
+      title="Thông báo"
+      style={{ position: 'relative' }}
+    >
+      <BellIcon />
       {unread > 0 ? (
         <span
-          aria-label={`${unread} thông báo chưa đọc`}
-          style={{
-            position: 'absolute',
-            top: -4,
-            right: -2,
-            minWidth: 18,
-            height: 18,
-            padding: '0 5px',
-            borderRadius: 999,
-            background: 'rgba(255,107,107,0.95)',
-            color: '#fff',
-            fontSize: 11,
-            fontWeight: 800,
-            lineHeight: '18px',
-            textAlign: 'center',
-          }}
+          className="notificationBell__badge"
+          aria-hidden
         >
           {unread > 99 ? '99+' : unread}
         </span>
@@ -212,7 +290,7 @@ function NotificationsNav() {
 }
 
 function AuthButtons() {
-  const { token, user, logout } = useAuth();
+  const { token } = useAuth();
   if (!token) {
     return (
       <div className="authBtns">
@@ -224,10 +302,8 @@ function AuthButtons() {
   }
   return (
     <div className="authBtns">
-      <span className="userBadge">{user?.fullName || user?.email}</span>
-      <button className="btn btnGhost" onClick={logout}>
-        Đăng xuất
-      </button>
+      <NotificationsNav />
+      <UserAccountMenu />
     </div>
   );
 }

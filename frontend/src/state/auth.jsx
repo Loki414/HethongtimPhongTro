@@ -22,6 +22,15 @@ export function AuthProvider({ children }) {
         setToken(t);
         setUser(u);
       },
+      /** Gộp thông tin user (sau cập nhật profile, avatar, …) */
+      patchUser: (partial) => {
+        setUser((prev) => {
+          if (!prev) return prev;
+          const next = { ...prev, ...partial };
+          localStorage.setItem(USER_KEY, JSON.stringify(next));
+          return next;
+        });
+      },
       logout: () => {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);

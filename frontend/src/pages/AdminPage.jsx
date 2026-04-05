@@ -149,9 +149,17 @@ export default function AdminPage() {
         <h2 style={{ marginTop: 0 }}>Trang quản trị (Admin)</h2>
         {error ? <div className="error">{error}</div> : null}
         <div style={{ color: 'rgba(232,238,252,0.7)' }}>Tối giản: quản lý Category/Location/Amenity + danh sách phòng (xóa).</div>
-        <Link className="btn" to="/admin/bookings" style={{ display: 'inline-flex', marginTop: 12 }}>
-          Duyệt đặt phòng (lịch thuê)
-        </Link>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+          <Link className="btn" to="/admin/dashboard">
+            Dashboard số liệu
+          </Link>
+          <Link className="btn" to="/admin/bookings">
+            Duyệt đặt phòng (lịch thuê)
+          </Link>
+          <Link className="btn btnGhost" to="/admin/deposits">
+            Hóa đơn đặt cọc
+          </Link>
+        </div>
       </div>
 
       <div className="card">

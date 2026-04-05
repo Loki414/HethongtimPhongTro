@@ -151,6 +151,15 @@ export default function AdminBookingsPage() {
                       <strong>Người đặt:</strong> {b.user?.fullName || '—'}
                     </div>
                     <div style={{ marginTop: 4 }}>{b.user?.email || ''}</div>
+                    {b.user?.phone ? (
+                      <div style={{ marginTop: 4 }}>
+                        <strong>SĐT:</strong> {b.user.phone}
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(232,238,252,0.45)' }}>
+                        Chưa có SĐT trong hồ sơ
+                      </div>
+                    )}
                   </div>
                 </div>
                 {b.note ? (

@@ -14,6 +14,7 @@ async function register({ fullName, email, password, role }) {
     id: user.id,
     fullName: user.fullName,
     email: user.email,
+    phone: user.phone,
     role: user.role,
     avatarUrl: user.avatarUrl,
   };
@@ -41,6 +42,7 @@ async function login({ email, password }) {
       id: user.id,
       fullName: user.fullName,
       email: user.email,
+      phone: user.phone,
       role: user.role,
       avatarUrl: user.avatarUrl,
     },
