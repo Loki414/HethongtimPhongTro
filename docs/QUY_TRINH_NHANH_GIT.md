@@ -83,4 +83,20 @@ Sau đó tạo **Pull Request** trên GitHub: base **`develop`**, compare **`fea
 
 ---
 
+## 6. Nhánh đã khởi tạo trên GitHub (minh họa)
+
+Các nhánh sau tồn tại trên remote để minh họa cấu trúc (commit rỗng `chore(workflow)`):
+
+| Nhánh | Gợi ý vai trò minh họa |
+|--------|-------------------------|
+| `develop` | Nhánh tích hợp nhóm |
+| `feature/homework/task1` | Ví dụ đặt tên theo đề bài |
+| `feature/loki414/dieu-hanh-repo` | Nhánh gắn nhóm trưởng / owner |
+| `feature/sevengrass/tinh-nang-mau` | Nhánh thành viên (Collaborator) |
+| `feature/thiendo/ghi-chep-quy-trinh` | Nhánh thành viên (Collaborator) |
+
+Trên giao diện GitHub: **Code → branch dropdown** hoặc **Insights → Network** để chụp màn hình cây nhánh.
+
+---
+
 *Tài liệu chỉ mục đích mô tả quy trình nhóm; có thể bổ sung theo yêu cầu giảng viên.*
