@@ -9,7 +9,7 @@ const requestLogger = require('./middlewares/requestLogger');
 const swaggerUi = require('swagger-ui-express');
 const { spec } = require('./swagger');
 
-const authRoutes = require('./routes/auth.routes');
+const authRoutes = require('./routes/auth.routes'); // Router POST /register, /login → luồng đăng ký/đăng nhập
 const userRoutes = require('./routes/user.routes');
 const categoryRoutes = require('./routes/category.routes');
 const locationRoutes = require('./routes/location.routes');
@@ -42,14 +42,15 @@ app.use(requestLogger);
 const isProd = process.env.NODE_ENV === 'production';
 const skipRateLimit = () => process.env.RATE_LIMIT_DISABLED === 'true';
 
+// Giới hạn số request tới /api/auth (brute-force đăng nhập / spam đăng ký)
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: isProd ? 40 : 300,
-  standardHeaders: true,
+  windowMs: 15 * 60 * 1000, // Cửa sổ 15 phút
+  limit: isProd ? 40 : 300, // Prod chặt hơn dev
+  standardHeaders: true, // Trả header RateLimit-* chuẩn
   legacyHeaders: false,
-  message: { message: 'Quá nhiều lần thử đăng nhập, vui lòng chờ.' },
-  keyGenerator: (req) => req.ip,
-  skip: skipRateLimit,
+  message: { message: 'Quá nhiều lần thử đăng nhập, vui lòng chờ.' }, // JSON khi vượt limit
+  keyGenerator: (req) => req.ip, // Phân bổ limit theo IP
+  skip: skipRateLimit, // Tắt hoàn toàn nếu RATE_LIMIT_DISABLED=true
 });
 
 const apiLimiter = rateLimit({
@@ -63,8 +64,8 @@ const apiLimiter = rateLimit({
 });
 
 function routeRateLimit(req, res, next) {
-  if (req.path.startsWith('/api/auth')) return authLimiter(req, res, next);
-  return apiLimiter(req, res, next);
+  if (req.path.startsWith('/api/auth')) return authLimiter(req, res, next); // Login/register dùng authLimiter
+  return apiLimiter(req, res, next); // Các API khác dùng giới hạn rộng hơn
 }
 
 app.use(routeRateLimit);
@@ -81,7 +82,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(spec));
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes); // Mount: POST /api/auth/login, /api/auth/register
 app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/locations', locationRoutes);

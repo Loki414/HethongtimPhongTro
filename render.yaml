@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: dack-backend
+    runtime: docker
+    rootDir: backend
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 3306
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+
+  - type: web
+    name: dack-frontend
+    runtime: docker
+    rootDir: frontend
+    plan: free
+    autoDeploy: true
+    envVars:
+      # IMPORTANT: update this to backend public URL + /api before first deploy.
+      - key: VITE_API_BASE_URL
+        value: https://dack-backend.onrender.com/api

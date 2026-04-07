@@ -8,6 +8,7 @@
   --muted: rgba(242, 246, 255, 0.75);
   --primary: #7ab4ff;
   --danger: #ff6b6b;
+  --success: #5ad49b;
   --border: rgba(255, 255, 255, 0.18);
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
@@ -305,6 +306,11 @@ textarea {
 
 .error {
   color: var(--danger);
+  font-weight: 600;
+}
+
+.success {
+  color: var(--success);
   font-weight: 600;
 }
 
