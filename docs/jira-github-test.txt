@@ -1,0 +1,1 @@
+File thử nghiệm liên kết GitHub → Jira (tab Development). Có thể xóa sau khi kiểm tra.
