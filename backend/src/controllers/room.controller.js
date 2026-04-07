@@ -1,7 +1,7 @@
 const { z } = require('zod');
 const { Op } = require('sequelize');
 const { ApiError } = require('../middlewares/errorHandler');
-const { requireAuth, requireRole } = require('../middlewares/auth');
+const { requireAuth, requireRole, optionalAuth } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
 const { uploadRoomImages } = require('../middlewares/upload');
 
@@ -49,18 +49,23 @@ const roomIdParams = z.object({
 });
 
 async function list(req, res) {
-  const cached = await getCachedRoomsList(req.query);
-  if (cached) {
-    return res.json({ message: 'OK', ...cached, cached: true });
+  const useListCache = !req.user;
+  if (useListCache) {
+    const cached = await getCachedRoomsList(req.query);
+    if (cached) {
+      return res.json({ message: 'OK', ...cached, cached: true });
+    }
   }
 
-  const result = await roomService.listRooms({ query: req.query });
-  await setCachedRoomsList(req.query, result);
+  const result = await roomService.listRooms({ query: req.query, viewer: req.user });
+  if (useListCache) {
+    await setCachedRoomsList(req.query, result);
+  }
   res.json({ message: 'OK', ...result });
 }
 
 async function getById(req, res) {
-  const room = await roomService.getRoomById(req.params.roomId);
+  const room = await roomService.getRoomById(req.params.roomId, { viewer: req.user });
   if (!room) throw new ApiError(404, 'Room not found');
   res.json({ message: 'OK', data: room });
 }
@@ -119,8 +124,8 @@ async function uploadImages(req, res) {
 }
 
 module.exports = {
-  list: [validate({ query: listRoomsQuerySchema }), asyncHandler(list)],
-  getById: [validate({ params: roomIdParams }), asyncHandler(getById)],
+  list: [optionalAuth, validate({ query: listRoomsQuerySchema }), asyncHandler(list)],
+  getById: [optionalAuth, validate({ params: roomIdParams }), asyncHandler(getById)],
   create: [requireAuth, requireRole('admin'), validate({ body: createRoomBodySchema }), asyncHandler(create)],
   update: [
     requireAuth,

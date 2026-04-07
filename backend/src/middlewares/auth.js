@@ -40,4 +40,23 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { requireAuth, requireRole };
+/** Gắn req.user nếu có Bearer hợp lệ; không token hoặc token lỗi thì bỏ qua (route public). */
+function optionalAuth(req, res, next) {
+  const token = getTokenFromHeader(req);
+  if (!token) return next();
+  try {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return next();
+    const payload = jwt.verify(token, secret);
+    req.user = {
+      id: payload.sub,
+      role: payload.role,
+      email: payload.email,
+    };
+  } catch {
+    // Token không hợp lệ trên route public: không set user
+  }
+  return next();
+}
+
+module.exports = { requireAuth, requireRole, optionalAuth };

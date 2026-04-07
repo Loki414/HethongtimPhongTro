@@ -5,6 +5,7 @@ const { validate } = require('../middlewares/validate');
 
 const { Booking, Room, Category, Location, User, Notification, sequelize } = require('../models');
 const { tryCreateDepositOnConfirm } = require('../services/depositInvoice.service');
+const { invalidateRoomsCache } = require('../core/cache/roomsCache');
 
 function toYmdLocal(d) {
   const x = d instanceof Date ? d : new Date(d);
@@ -207,6 +208,10 @@ async function update(req, res) {
     }
   });
 
+  if (patch.status != null && patch.status !== prevStatus) {
+    await invalidateRoomsCache();
+  }
+
   await booking.reload({
     include: [
       { model: Room, as: 'room', attributes: ['id', 'title', 'pricePerMonth', 'address'] },
@@ -222,6 +227,7 @@ async function remove(req, res) {
     throw new ApiError(403, 'Forbidden');
   }
   await booking.destroy();
+  await invalidateRoomsCache();
   res.json({ message: 'Booking deleted' });
 }
 

@@ -6,7 +6,7 @@ function omitUndefined(obj) {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
 }
 
-async function listRooms({ query }) {
+async function listRooms({ query, viewer }) {
   const {
     page,
     pageSize,
@@ -17,6 +17,9 @@ async function listRooms({ query }) {
     amenityIds,
     q,
   } = query;
+
+  const isAdmin = viewer?.role === 'admin';
+  const viewerId = viewer?.id;
 
   const where = {};
   if (minPrice !== undefined || maxPrice !== undefined) {
@@ -51,6 +54,18 @@ async function listRooms({ query }) {
 
     where[Op.and] = where[Op.and] || [];
     where[Op.and].push(sequelize.literal(mustHaveAllSql));
+  }
+
+  // Admin: thấy tất cả. Khách/user: ẩn phòng đã confirmed cho người khác (người được confirm vẫn thấy).
+  if (!isAdmin) {
+    const hideSql = viewerId
+      ? `(SELECT DISTINCT room_id FROM bookings WHERE status = 'confirmed' AND deleted_at IS NULL AND user_id <> ${sequelize.escape(
+          viewerId
+        )})`
+      : "(SELECT DISTINCT room_id FROM bookings WHERE status = 'confirmed' AND deleted_at IS NULL)";
+    where.id = {
+      [Op.notIn]: sequelize.literal(hideSql),
+    };
   }
 
   const include = [
@@ -92,7 +107,14 @@ async function listRooms({ query }) {
   };
 }
 
-async function getRoomById(id) {
+async function getRoomById(id, { viewer } = {}) {
+  if (viewer?.role !== 'admin') {
+    const confirmed = await Booking.findOne({
+      where: { roomId: id, status: 'confirmed' },
+    });
+    if (confirmed && (!viewer || confirmed.userId !== viewer.id)) return null;
+  }
+
   return Room.findByPk(id, {
     include: [
       { model: Category, as: 'category', attributes: ['id', 'name', 'description'] },
