@@ -1,0 +1,102 @@
+const path = require('path');
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+
+const { errorHandler, notFound } = require('./middlewares/errorHandler');
+const requestLogger = require('./middlewares/requestLogger');
+const swaggerUi = require('swagger-ui-express');
+const { spec } = require('./swagger');
+
+const authRoutes = require('./routes/auth.routes');
+const userRoutes = require('./routes/user.routes');
+const categoryRoutes = require('./routes/category.routes');
+const locationRoutes = require('./routes/location.routes');
+const amenityRoutes = require('./routes/amenity.routes');
+const roomRoutes = require('./routes/room.routes');
+const bookingRoutes = require('./routes/booking.routes');
+const reviewRoutes = require('./routes/review.routes');
+const favoriteRoutes = require('./routes/favorite.routes');
+const reportRoutes = require('./routes/report.routes');
+const imageRoutes = require('./routes/image.routes');
+const notificationRoutes = require('./routes/notification.routes');
+const depositInvoiceRoutes = require('./routes/depositInvoice.routes');
+const adminRoutes = require('./routes/admin.routes');
+
+const app = express();
+
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+
+app.use(helmet());
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim()) : true,
+    credentials: true,
+  })
+);
+
+app.use(requestLogger);
+
+const isProd = process.env.NODE_ENV === 'production';
+const skipRateLimit = () => process.env.RATE_LIMIT_DISABLED === 'true';
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: isProd ? 40 : 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Quá nhiều lần thử đăng nhập, vui lòng chờ.' },
+  keyGenerator: (req) => req.ip,
+  skip: skipRateLimit,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: isProd ? 500 : 8000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests' },
+  keyGenerator: (req) => req.ip,
+  skip: skipRateLimit,
+});
+
+function routeRateLimit(req, res, next) {
+  if (req.path.startsWith('/api/auth')) return authLimiter(req, res, next);
+  return apiLimiter(req, res, next);
+}
+
+app.use(routeRateLimit);
+
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Expose uploaded files
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+
+app.get('/health', (req, res) => {
+  res.json({ ok: true });
+});
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(spec));
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/locations', locationRoutes);
+app.use('/api/amenities', amenityRoutes);
+app.use('/api/rooms', roomRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/favorites', favoriteRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/images', imageRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/deposit-invoices', depositInvoiceRoutes);
+app.use('/api/admin', adminRoutes);
+
+app.use(notFound);
+app.use(errorHandler);
+
+module.exports = app;
